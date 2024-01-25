@@ -1,9 +1,15 @@
-import { setMusic } from "./music";
+import { onMount } from "solid-js";
+import { music, setMusic } from "./music";
 
 export function AudioInfo(props: AudioInfoProps) {
   function changeMusic() {
     setMusic(props.uri);
   }
+  onMount(() => {
+    if (music() === undefined) {
+      setMusic(props.uri);
+    }
+  });
   return (
     <div class="p-4 rounded bg-gray-50">
       <div>{props.description}</div>

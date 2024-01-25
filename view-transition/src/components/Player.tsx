@@ -1,22 +1,25 @@
 import { createEffect, createSignal } from "solid-js";
-import { music } from "./music";
+import { music, setMusic } from "./music";
 
 export function Player() {
   const [isPlaying, setIsPlaying] = createSignal(false);
   const [audio] = createSignal(new Audio(music() ?? ""));
-  createEffect(() => {
+  createEffect(async () => {
     let src = music();
     if (src && audio().src !== src) {
       audio().src = src;
       audio().load();
-      audio().play();
-      setIsPlaying(true);
+      try {
+        await audio().play();
+        setIsPlaying(true);
+      } catch (e) {
+        setMusic(undefined);
+      }
     }
   });
 
   function play() {
     if (!audio().src.endsWith(".mp3")) return;
-    console.log(audio().src);
     const playing = isPlaying();
     setIsPlaying(!playing);
     if (playing) {
