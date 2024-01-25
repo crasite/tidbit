@@ -1,3 +1,8 @@
+# Demo Guide
+
+1. run `pnpm i`
+2. run `pnpm dev`
+
 # Astro Starter Kit: Basics
 
 ```sh
