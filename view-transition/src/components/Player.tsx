@@ -1,26 +1,39 @@
 import { createEffect, createSignal } from "solid-js";
+import { music } from "./music";
 
 export function Player() {
   const [isPlaying, setIsPlaying] = createSignal(false);
-  const audio = new Audio("/music1.mp3");
+  const [audio] = createSignal(new Audio(music() ?? ""));
   createEffect(() => {
-    if (isPlaying()) {
-      audio.play();
-    } else {
-      audio.pause();
+    let src = music();
+    if (src && audio().src !== src) {
+      audio().src = src;
+      audio().load();
+      audio().play();
+      setIsPlaying(true);
     }
   });
+
+  function play() {
+    if (!audio().src.endsWith(".mp3")) return;
+    console.log(audio().src);
+    const playing = isPlaying();
+    setIsPlaying(!playing);
+    if (playing) {
+      audio().pause();
+    } else {
+      audio().play();
+    }
+  }
   return (
-    <div class="rounded p-2 bg-blue-50 w-fit">
-      <div classList={{ "animate-spin": isPlaying() }}>
+    <div class="rounded p-2 bg-blue-50">
+      <div classList={{ "animate-spin": isPlaying() }} onclick={play}>
         <Disk />
       </div>
-      <h1 onclick={() => setIsPlaying((prev) => !prev)}>Player</h1>
     </div>
   );
 }
 
-//@ts-ignore
 function Disk(props: { class?: string }) {
   return (
     <svg
@@ -31,8 +44,7 @@ function Disk(props: { class?: string }) {
       xmlns:svg="http://www.w3.org/2000/svg"
       xmlns="http://www.w3.org/2000/svg"
       xmlns:xlink="http://www.w3.org/1999/xlink"
-      width="400"
-      height="400"
+      viewBox="0 0 400 400"
       id="svg2"
       version="1.0"
       class={props.class}
@@ -155,3 +167,5 @@ function Disk(props: { class?: string }) {
     </svg>
   );
 }
+
+export type PlayerProps = {};

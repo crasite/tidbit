@@ -1,0 +1,20 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { Player } from "../components/Player.tsx";
+import { AudioInfo } from "../components/AudioInfo.tsx";
+---
+
+<Layout title="Welcome to Astro.">
+  <div class="flex">
+    <div class="flex-1" transition:name="audioPlayer">
+      <Player client:only transition:persist transition:name="player" />
+    </div>
+    <div class="flex-1">
+      <AudioInfo
+        client:load
+        description="Some electric guitary music"
+        uri="/music1.mp3"
+      />
+    </div>
+  </div>
+</Layout>

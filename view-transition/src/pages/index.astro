@@ -1,8 +1,14 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import {Player} from "../components/Player.tsx"
+import Layout from "../layouts/Layout.astro";
+import { Player } from "../components/Player.tsx";
+import { AudioList } from "../components/AudioList.tsx";
 ---
 
 <Layout title="Welcome to Astro.">
-  <Player client:only/>
+  <div class="w-52">
+    <div transition:name="audioPlayer">
+      <Player client:only transition:persist transition:name="player" />
+    </div>
+  </div>
+  <AudioList />
 </Layout>
