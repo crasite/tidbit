@@ -3,6 +3,11 @@
 1. run `pnpm i`
 2. run `pnpm dev`
 
+or
+
+1. `pnpm i && pnpm build`
+2. `tilt up`
+
 # Astro Starter Kit: Basics
 
 ```sh
