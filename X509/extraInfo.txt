@@ -3,5 +3,6 @@ subjectAltName=@alt_section
 extendedKeyUsage=serverAuth
 
 [alt_section]
-DNS.1=*.crasite.com
+DNS.1=crasite.com
+DNS.2=*.crasite.com
 IP.1=127.0.0.1

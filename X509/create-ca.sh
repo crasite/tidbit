@@ -1,7 +1,7 @@
 ## Create a private key for CA
-openssl genpkey -out ca-key -algorithm Ed25519 #Ed25519 key
+# openssl genpkey -out ca-key -algorithm Ed25519 #Ed25519 key
 ## Create a self-signed certificate for CA
-openssl req -new -x509 -nodes -days 3650 -key ca-key -out ca-cert.crt -subj "/O=Crasite, Inc./CN=Crasite Root CA"
+# openssl req -new -x509 -nodes -days 3650 -key ca-key -out ca-cert.crt -subj "/O=Crasite, Inc./CN=Crasite Root CA"
 
 ## Create a key for server
 openssl genrsa -out server-key 2048
