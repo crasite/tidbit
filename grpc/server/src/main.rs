@@ -1,27 +1,59 @@
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc::{channel, Sender};
 
 use simple::client::Request as ClientRequest;
 use simple::simple_server::{Simple, SimpleServer};
-use simple::{Client, Server as ServerMessage};
+use simple::{Client, Question, Server as ServerMessage};
 use tokio_stream::{Stream, StreamExt};
-use tonic::transport::Server;
+use tonic::transport::{Identity, Server, ServerTlsConfig};
 use tonic::{Request, Response, Status, Streaming};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt::init();
+
+    let cert = include_str!("../../../X509/server.crt");
+    let key = include_str!("../../../X509/server-key");
+
+    let identity = Identity::from_pem(cert, key);
     let addr = "[::1]:10000".parse().unwrap();
 
-    let route_guide = MyServer {};
+    let route_guide = MyServer {
+        sender: Arc::new(Mutex::new(vec![])),
+    };
+    let sender_list = route_guide.sender.clone();
 
     let svc = SimpleServer::new(route_guide);
+    tokio::spawn(async move {
+        loop {
+            {
+                let mut senders = sender_list.lock().unwrap();
+                tracing::info!("Sending message to {} clients", senders.len());
+                for sender in senders.iter() {
+                    if let Err(e) = sender.try_send("Hello".to_string()) {
+                        println!("Error: {:?}", e);
+                    }
+                }
+                *senders = senders.iter().filter(|x| !x.is_closed()).cloned().collect();
+            }
+            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+        }
+    });
 
-    Server::builder().add_service(svc).serve(addr).await?;
+    Server::builder()
+        .tls_config(ServerTlsConfig::new().identity(identity))?
+        .add_service(svc)
+        .serve(addr)
+        .await?;
 
     Ok(())
 }
 
 #[derive(Debug, Default)]
-struct MyServer {}
+struct MyServer {
+    sender: Arc<Mutex<Vec<Sender<String>>>>,
+}
 
 #[tonic::async_trait]
 impl Simple for MyServer {
@@ -33,15 +65,29 @@ impl Simple for MyServer {
         request: Request<Streaming<Client>>,
     ) -> Result<Response<Self::DefaultStream>, Status> {
         let mut stream = request.into_inner();
+        let (tx, mut rx) = channel(10);
+        self.sender.lock().unwrap().push(tx);
+        let command_stream = async_stream::try_stream! {
+            dbg!("start");
+            while let Some(res) = rx.recv().await {
+                dbg!(&res);
+                yield ServerMessage {
+                    question: Question::GetInfo as i32,
+                    extra_text: res,
+                };
+            }
+            dbg!("end");
+        };
 
         let output = async_stream::try_stream! {
             while let Some(res) = stream.next().await {
                 let res = res?;
                 tokio::spawn(async move {
                     if let Some(req) = res.request {
+                        dbg!(&req);
                         match req {
                             ClientRequest::Response(s) => {
-                                println!("Got a message: {:?}", s);
+                                dbg!(s);
                             }
                             _ => {
 
@@ -49,14 +95,17 @@ impl Simple for MyServer {
                         }
                     }
                 });
-                yield ServerMessage::default();
                 //Need to satify the compiler
                 if false {
                     yield ServerMessage::default()
                 }
             };
         };
-        Ok(Response::new(Box::pin(output) as Self::DefaultStream))
+        let merge_stream = command_stream.merge(output).filter(|x| {
+            dbg!(x);
+            return true;
+        });
+        Ok(Response::new(Box::pin(merge_stream) as Self::DefaultStream))
     }
 }
 pub mod simple {
