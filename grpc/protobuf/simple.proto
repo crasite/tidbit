@@ -1,0 +1,23 @@
+syntax = "proto3";
+package simple;
+service Simple {
+    rpc Default(stream Client) returns (stream Server);
+}
+
+message Client {
+  oneof request {
+    string response = 1;
+    bytes image = 2;
+    bytes file = 3;
+  }
+}
+
+message Server {
+    Question question = 1;
+    string extra_text = 2;
+}
+
+enum Question {
+    GET_INFO = 0;
+    SHUTDOWN = 1;
+}
