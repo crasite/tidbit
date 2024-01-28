@@ -8,6 +8,7 @@ use simple::{Client, Question, Server as ServerMessage};
 use tokio_stream::{Stream, StreamExt, StreamNotifyClose};
 use tonic::transport::{Identity, Server, ServerTlsConfig};
 use tonic::{Request, Response, Status, Streaming};
+use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,6 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             {
                 let mut senders = sender_list.lock().unwrap();
                 *senders = senders.iter().filter(|x| !x.is_closed()).cloned().collect();
+                info!("Senders: {:?}", senders.len());
                 for sender in senders.iter() {
                     if let Err(e) = sender.try_send("Hello".to_string()) {
                         println!("Error: {:?}", e);
