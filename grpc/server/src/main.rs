@@ -5,7 +5,7 @@ use tokio::sync::mpsc::{channel, Sender};
 use simple::client::Request as ClientRequest;
 use simple::simple_server::{Simple, SimpleServer};
 use simple::{Client, Question, Server as ServerMessage};
-use tokio_stream::{Stream, StreamExt};
+use tokio_stream::{Stream, StreamExt, StreamNotifyClose};
 use tonic::transport::{Identity, Server, ServerTlsConfig};
 use tonic::{Request, Response, Status, Streaming};
 
@@ -29,13 +29,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         loop {
             {
                 let mut senders = sender_list.lock().unwrap();
-                tracing::info!("Sending message to {} clients", senders.len());
+                *senders = senders.iter().filter(|x| !x.is_closed()).cloned().collect();
                 for sender in senders.iter() {
                     if let Err(e) = sender.try_send("Hello".to_string()) {
                         println!("Error: {:?}", e);
                     }
                 }
-                *senders = senders.iter().filter(|x| !x.is_closed()).cloned().collect();
             }
             tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
         }
@@ -68,17 +67,13 @@ impl Simple for MyServer {
         let (tx, mut rx) = channel(10);
         self.sender.lock().unwrap().push(tx);
         let command_stream = async_stream::try_stream! {
-            dbg!("start");
             while let Some(res) = rx.recv().await {
-                dbg!(&res);
                 yield ServerMessage {
                     question: Question::GetInfo as i32,
                     extra_text: res,
                 };
             }
-            dbg!("end");
         };
-
         let output = async_stream::try_stream! {
             while let Some(res) = stream.next().await {
                 let res = res?;
@@ -100,11 +95,14 @@ impl Simple for MyServer {
                     yield ServerMessage::default()
                 }
             };
+            dbg!("Done");
         };
-        let merge_stream = command_stream.merge(output).filter(|x| {
-            dbg!(x);
-            return true;
-        });
+        let st1 = StreamNotifyClose::new(command_stream);
+        let st2 = StreamNotifyClose::new(output);
+        let merge_stream = st1
+            .merge(st2)
+            .take_while(|x| x.is_some())
+            .map(|x| x.unwrap());
         Ok(Response::new(Box::pin(merge_stream) as Self::DefaultStream))
     }
 }
