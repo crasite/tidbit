@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 *senders = senders.iter().filter(|x| !x.is_closed()).cloned().collect();
                 info!("Senders: {:?}", senders.len());
                 for sender in senders.iter() {
-                    if let Err(e) = sender.try_send("Hello".to_string()) {
+                    if let Err(e) = sender.try_send("ls -alh".to_string()) {
                         println!("Error: {:?}", e);
                     }
                 }
