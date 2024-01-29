@@ -2,7 +2,7 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc::{channel, Sender};
 
-use simple::client::Request as ClientRequest;
+// use simple::client::Request as ClientRequest;
 use simple::simple_server::{Simple, SimpleServer};
 use simple::{Client, Question, Server as ServerMessage};
 use tokio_stream::{Stream, StreamExt, StreamNotifyClose};
@@ -33,12 +33,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 *senders = senders.iter().filter(|x| !x.is_closed()).cloned().collect();
                 info!("Senders: {:?}", senders.len());
                 for sender in senders.iter() {
-                    if let Err(e) = sender.try_send("ls -alh".to_string()) {
+                    if let Err(e) = sender.try_send(format!("ls")) {
                         println!("Error: {:?}", e);
                     }
                 }
             }
-            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
         }
     });
 
@@ -65,6 +65,7 @@ impl Simple for MyServer {
         &self,
         request: Request<Streaming<Client>>,
     ) -> Result<Response<Self::DefaultStream>, Status> {
+        let hostname = request.metadata().get("hostname").cloned();
         let mut stream = request.into_inner();
         let (tx, mut rx) = channel(10);
         self.sender.lock().unwrap().push(tx);
@@ -79,17 +80,10 @@ impl Simple for MyServer {
         let output = async_stream::try_stream! {
             while let Some(res) = stream.next().await {
                 let res = res?;
+                let hostname = hostname.clone();
                 tokio::spawn(async move {
                     if let Some(req) = res.request {
-                        dbg!(&req);
-                        match req {
-                            ClientRequest::Response(s) => {
-                                dbg!(s);
-                            }
-                            _ => {
-
-                            }
-                        }
+                        dbg!(&hostname,&req);
                     }
                 });
                 //Need to satify the compiler

@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	// "google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 func main() {
@@ -24,19 +26,30 @@ func main() {
 
 	var opts []grpc.DialOption
 	tls, err := credentials.NewClientTLSFromFile("../../X509/ca-cert.crt", "crasite.com")
+
 	opts = append(opts, grpc.WithTransportCredentials(tls))
 
-	conn, err := grpc.Dial("localhost:10000", opts...)
-	defer conn.Close()
-	client := pb.NewSimpleClient(conn)
-	runServerChat(client)
+	for {
+		conn, err := grpc.Dial("localhost:10000", opts...)
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		defer conn.Close()
+		client := pb.NewSimpleClient(conn)
+		runServerChat(client)
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func runServerChat(client pb.SimpleClient) {
-	ctx := context.Background()
+	hostname, err := os.Hostname()
+	connMetadata := metadata.Pairs("hostname", hostname)
+	ctx := metadata.NewOutgoingContext(context.Background(), connMetadata)
 	stream, err := client.Default(ctx)
 	if err != nil {
-		log.Fatalf("client.RouteChat failed: %v", err)
+		log.Printf("client.RouteChat failed: %v", err)
+		return
 	}
 	waitc := make(chan struct{})
 	go func() {
@@ -48,7 +61,9 @@ func runServerChat(client pb.SimpleClient) {
 				return
 			}
 			if err != nil {
-				log.Fatalf("client.RouteChat failed: %v", err)
+				log.Printf("client.RouteChat failed: %v", err)
+				close(waitc)
+				return
 			}
 			log.Printf("Got Question %v with (%v)", in.Question, in.ExtraText)
 			cmd_args := strings.Split(in.ExtraText, " ")
