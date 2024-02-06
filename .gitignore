@@ -1,2 +1,6 @@
 .DS_Store
 jwt/target
+java-spring/.gradle/8.5
+java-spring/.gradle/buildOutputCleanup
+java-spring/gradle/wrapper
+java-spring/.gradle/vcs-1

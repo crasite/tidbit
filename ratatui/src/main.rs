@@ -1,12 +1,16 @@
+use std::default;
+
 use anyhow::Result;
+use color_eyre::owo_colors::OwoColorize;
 use crossterm::{
     event::{self, Event::Key, KeyCode::Char},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
+    layout::{Constraint, Direction, Layout},
     prelude::{CrosstermBackend, Frame, Terminal},
-    widgets::Paragraph,
+    widgets::{Block, Borders, Paragraph},
 };
 
 fn startup() -> Result<()> {
@@ -29,9 +33,21 @@ struct App {
 
 // App ui render function
 fn ui(app: &App, f: &mut Frame) {
+    let [left, right] = Layout::new(
+        Direction::Horizontal,
+        [Constraint::Fill(1), Constraint::Fill(1)],
+    )
+    .areas(f.size());
+    let block = Block::default().title("User").borders(Borders::all());
     f.render_widget(
-        Paragraph::new(format!("Counter: {}", app.counter)),
-        f.size(),
+        Paragraph::new(format!("Counter: {}", app.counter)).block(block.clone()),
+        left,
+    );
+    f.render_widget(
+        Paragraph::new(format!("Counter: {}", app.counter))
+            .wrap(Default::default())
+            .block(block),
+        right,
     );
 }
 
