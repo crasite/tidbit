@@ -3,7 +3,6 @@ package main
 import (
 	pb "client/pb/simple"
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -17,15 +16,11 @@ import (
 )
 
 func main() {
-	cmd := exec.Command("ls")
-	output, err := cmd.Output()
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(string(output))
-
 	var opts []grpc.DialOption
-	tls, err := credentials.NewClientTLSFromFile("../../X509/ca-cert.crt", "crasite.com")
+	tls, err := credentials.NewClientTLSFromFile("./ca-cert.crt", "crasite.com")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	opts = append(opts, grpc.WithTransportCredentials(tls))
 

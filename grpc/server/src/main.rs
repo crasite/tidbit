@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let key = include_str!("../../../X509/server-key");
 
     let identity = Identity::from_pem(cert, key);
-    let addr = "[::1]:10000".parse().unwrap();
+    let addr = "[::0]:443".parse().unwrap();
 
     let route_guide = MyServer {
         sender: Arc::new(Mutex::new(vec![])),
@@ -33,12 +33,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 *senders = senders.iter().filter(|x| !x.is_closed()).cloned().collect();
                 info!("Senders: {:?}", senders.len());
                 for sender in senders.iter() {
-                    if let Err(e) = sender.try_send(format!("ls")) {
+                    if let Err(e) = sender.try_send(format!("cmd /c dir")) {
                         println!("Error: {:?}", e);
                     }
                 }
             }
-            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
         }
     });
 
@@ -91,7 +91,7 @@ impl Simple for MyServer {
                     yield ServerMessage::default()
                 }
             };
-            dbg!("Done");
+            dbg!(&hostname,"Done");
         };
         let st1 = StreamNotifyClose::new(command_stream);
         let st2 = StreamNotifyClose::new(output);
