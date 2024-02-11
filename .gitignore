@@ -7,3 +7,4 @@ java-spring/.gradle/vcs-1
 java-spring/.gradle
 java-spring/.settings
 java-spring/build
+otel/target
