@@ -1,12 +1,19 @@
-use opentelemetry::trace::{Span, Tracer, TracerProvider as _};
-use std::net::SocketAddr;
+use opentelemetry::{
+    propagation::TextMapPropagator as _,
+    trace::{Span, Tracer, TracerProvider as _},
+    Context,
+};
+use otel_header::OtelHeader;
+use std::{collections::HashMap, net::SocketAddr};
 use tower_http::trace::TraceLayer;
 use tracing::{error, error_span, info, span, Instrument, Level};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer, Registry};
+mod otel_header;
 
 use opentelemetry::global;
 use opentelemetry_sdk::{
+    propagation::TraceContextPropagator,
     runtime,
     trace::{BatchSpanProcessor, TracerProvider},
 };
@@ -23,6 +30,7 @@ use axum::{
 #[tokio::main]
 async fn main() {
     let _guard = init_logger();
+    global::set_text_map_propagator(TraceContextPropagator::new());
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/", get(index))
@@ -36,20 +44,24 @@ async fn main() {
 }
 
 #[tracing::instrument]
-async fn index() -> &'static str {
+async fn index() -> String {
     info!("Hello, world!");
+    let mut x = HashMap::new();
     {
         let _child = span!(tracing::Level::TRACE, "child", foo = 1).entered();
         error!("This event will be logged in the child span.");
+        let ctx = tracing::Span::current().context();
+        TraceContextPropagator::new().inject_context(&ctx, &mut x);
     }
-    "Hello, world!"
+    format!("Hello, world!\nContext: {:?}", x)
 }
 
 // #[axum_macros::debug_handler]
 async fn otel_middleware(request: Request<Body>, next: Next) -> Response {
-    // do something with `request`...
-
+    let x: OtelHeader = request.headers().into();
+    let parent_context = global::get_text_map_propagator(|propagator| propagator.extract(&x));
     let span = span!(tracing::Level::TRACE, "incoming_request", work_units = 2);
+    span.set_parent(parent_context);
     async { next.run(request).await }.instrument(span).await
 }
 
