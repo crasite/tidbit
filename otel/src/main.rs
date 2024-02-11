@@ -1,13 +1,9 @@
-use opentelemetry::{
-    propagation::TextMapPropagator as _,
-    trace::{Span, Tracer, TracerProvider as _},
-    Context, KeyValue,
-};
+use opentelemetry::{propagation::TextMapPropagator as _, trace::TracerProvider as _, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use otel_header::OtelHeader;
-use std::{collections::HashMap, net::SocketAddr};
-use tower_http::trace::TraceLayer;
-use tracing::{error, error_span, info, span, Instrument, Level};
+use std::collections::HashMap;
+
+use tracing::{error, info, span, Instrument, Level};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer, Registry};
 mod otel_header;
@@ -16,7 +12,7 @@ use opentelemetry::global;
 use opentelemetry_sdk::{
     propagation::TraceContextPropagator,
     runtime,
-    trace::{self, BatchSpanProcessor, Config, TracerProvider},
+    trace::{self, BatchSpanProcessor, TracerProvider},
     Resource,
 };
 
@@ -31,15 +27,12 @@ use axum::{
 
 #[tokio::main]
 async fn main() {
-    let _guard = init_logger();
+    init_logger();
     global::set_text_map_propagator(TraceContextPropagator::new());
     let app = Router::new()
-        // `GET /` goes to `root`
         .route("/", get(index))
-        // .layer(TraceLayer::new_for_http());
         .layer(from_fn(otel_middleware));
 
-    // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3008").await.unwrap();
     axum::serve(listener, app).await.unwrap();
     global::shutdown_tracer_provider();
@@ -58,7 +51,6 @@ async fn index() -> String {
     format!("Hello, world!\nContext: {:?}", x)
 }
 
-// #[axum_macros::debug_handler]
 async fn otel_middleware(request: Request<Body>, next: Next) -> Response {
     let x: OtelHeader = request.headers().into();
     let parent_context = global::get_text_map_propagator(|propagator| propagator.extract(&x));
@@ -68,11 +60,6 @@ async fn otel_middleware(request: Request<Body>, next: Next) -> Response {
 }
 
 fn init_logger() {
-    // Create a new OpenTelemetry trace pipeline that prints to stdout
-    // let tracer = opentelemetry_jaeger::new_agent_pipeline()
-    //     .with_service_name("public")
-    //     .install_simple()
-    //     .unwrap();
     let exporter = opentelemetry_otlp::new_exporter()
         .tonic()
         .with_endpoint("http://localhost:4317")
@@ -85,7 +72,7 @@ fn init_logger() {
             trace::config().with_resource(Resource::new([KeyValue::new("service.name", "otlp")])),
         )
         .build();
-    global::set_tracer_provider(provider.clone());
+    global::set_tracer_provider(provider.clone()); // set the global tracer provider, not really needed
     let tracer = provider.tracer("otel");
     let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
     let filter = tracing_subscriber::filter::Targets::new()
