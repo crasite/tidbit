@@ -8,3 +8,4 @@ java-spring/.gradle
 java-spring/.settings
 java-spring/build
 otel/target
+otel/tempo-data

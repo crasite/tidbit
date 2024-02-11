@@ -1,8 +1,9 @@
 use opentelemetry::{
     propagation::TextMapPropagator as _,
     trace::{Span, Tracer, TracerProvider as _},
-    Context,
+    Context, KeyValue,
 };
+use opentelemetry_otlp::WithExportConfig;
 use otel_header::OtelHeader;
 use std::{collections::HashMap, net::SocketAddr};
 use tower_http::trace::TraceLayer;
@@ -15,7 +16,8 @@ use opentelemetry::global;
 use opentelemetry_sdk::{
     propagation::TraceContextPropagator,
     runtime,
-    trace::{BatchSpanProcessor, TracerProvider},
+    trace::{self, BatchSpanProcessor, Config, TracerProvider},
+    Resource,
 };
 
 use axum::{
@@ -38,7 +40,7 @@ async fn main() {
         .layer(from_fn(otel_middleware));
 
     // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3008").await.unwrap();
     axum::serve(listener, app).await.unwrap();
     global::shutdown_tracer_provider();
 }
@@ -71,13 +73,17 @@ fn init_logger() {
     //     .with_service_name("public")
     //     .install_simple()
     //     .unwrap();
-    let processor = BatchSpanProcessor::builder(
-        opentelemetry_stdout::SpanExporter::default(),
-        runtime::Tokio,
-    )
-    .build();
+    let exporter = opentelemetry_otlp::new_exporter()
+        .tonic()
+        .with_endpoint("http://localhost:4317")
+        .build_span_exporter()
+        .unwrap();
+    let processor = BatchSpanProcessor::builder(exporter, runtime::Tokio).build();
     let provider = TracerProvider::builder()
         .with_span_processor(processor)
+        .with_config(
+            trace::config().with_resource(Resource::new([KeyValue::new("service.name", "otlp")])),
+        )
         .build();
     global::set_tracer_provider(provider.clone());
     let tracer = provider.tracer("otel");
