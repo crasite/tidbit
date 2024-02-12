@@ -1,6 +1,6 @@
 /*instrumentation.ts*/
 import { NodeSDK } from "@opentelemetry/sdk-node";
-import { ConsoleSpanExporter } from "@opentelemetry/sdk-trace-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-grpc";
 import { Resource } from "@opentelemetry/resources";
 import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import { propagation, context } from "@opentelemetry/api";
@@ -11,7 +11,9 @@ const sdk = new NodeSDK({
     [SemanticResourceAttributes.SERVICE_NAME]: "Roll Service",
     [SemanticResourceAttributes.SERVICE_VERSION]: "1.0",
   }),
-  traceExporter: new ConsoleSpanExporter(),
+  traceExporter: new OTLPTraceExporter({
+    url: "http://tempo:4317",
+  }),
 });
 
 export function startSdk() {
