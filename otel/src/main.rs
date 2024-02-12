@@ -41,12 +41,13 @@ async fn main() {
 #[tracing::instrument]
 async fn index() -> String {
     info!("Hello, world!");
+    tracing::trace!("This is a trace");
     let mut x = HashMap::new();
     {
-        let _child = span!(tracing::Level::TRACE, "child", foo = 1).entered();
-        error!("This event will be logged in the child span.");
+        let _child = span!(tracing::Level::INFO, "child", foo = 1).entered();
         let ctx = tracing::Span::current().context();
         TraceContextPropagator::new().inject_context(&ctx, &mut x);
+        error!("This is an error");
     }
     format!("Hello, world!\nContext: {:?}", x)
 }
@@ -54,7 +55,7 @@ async fn index() -> String {
 async fn otel_middleware(request: Request<Body>, next: Next) -> Response {
     let x: OtelHeader = request.headers().into();
     let parent_context = global::get_text_map_propagator(|propagator| propagator.extract(&x));
-    let span = span!(tracing::Level::TRACE, "incoming_request", work_units = 2);
+    let span = span!(tracing::Level::INFO, "incoming_request");
     span.set_parent(parent_context);
     async { next.run(request).await }.instrument(span).await
 }
@@ -62,7 +63,7 @@ async fn otel_middleware(request: Request<Body>, next: Next) -> Response {
 fn init_logger() {
     let exporter = opentelemetry_otlp::new_exporter()
         .tonic()
-        .with_endpoint("http://localhost:4317")
+        .with_endpoint("http://tempo:4317")
         .build_span_exporter()
         .unwrap();
     let processor = BatchSpanProcessor::builder(exporter, runtime::Tokio).build();
@@ -75,11 +76,10 @@ fn init_logger() {
     global::set_tracer_provider(provider.clone()); // set the global tracer provider, not really needed
     let tracer = provider.tracer("otel");
     let opentelemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-    let filter = tracing_subscriber::filter::Targets::new()
-        .with_target("otel", Level::TRACE)
-        .with_target("tower_http", Level::TRACE);
+    let filter = tracing_subscriber::filter::Targets::new().with_target("otel", Level::TRACE);
+    let otel_filter = tracing_subscriber::filter::Targets::new().with_target("otel", Level::INFO);
     Registry::default()
-        .with(tracing_subscriber::fmt::layer().with_filter(filter.clone()))
-        .with(opentelemetry.with_filter(filter))
+        .with(tracing_subscriber::fmt::layer().with_filter(filter))
+        .with(opentelemetry.with_filter(otel_filter))
         .init();
 }

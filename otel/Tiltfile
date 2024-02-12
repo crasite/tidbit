@@ -1,0 +1,7 @@
+load('ext://restart_process', 'docker_build_with_restart')
+docker_compose("./compose.yml")
+
+docker_build('local:app', '.', 
+  ignore=["tempo-data"],
+  live_update=[sync("target/aarch64-unknown-linux-gnu/debug/otel", "/usr/src/myapp/otel") ])
+local_resource("build", "cross build --target=aarch64-unknown-linux-gnu", deps=["src","Cargo.toml","Cargo.lock"])
