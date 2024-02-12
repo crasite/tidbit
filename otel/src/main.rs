@@ -1,5 +1,9 @@
 use axum_macros::debug_handler;
-use opentelemetry::{propagation::TextMapPropagator as _, trace::TracerProvider as _, KeyValue};
+use opentelemetry::{
+    propagation::TextMapPropagator as _,
+    trace::{SpanKind, TracerProvider as _},
+    KeyValue,
+};
 use opentelemetry_otlp::WithExportConfig;
 use otel_header::OtelHeader;
 use std::collections::HashMap;
@@ -46,7 +50,12 @@ async fn index() -> String {
     tracing::trace!("This is a trace");
     let mut x = HashMap::new();
     let mut header_map = HashMap::new();
-    let child_span = span!(tracing::Level::INFO, "request", foo = 1);
+    let child_span = span!(
+        tracing::Level::INFO,
+        "request",
+        foo = 1,
+        "otel.kind" = ?SpanKind::Client
+    );
     let child_span2 = span!(tracing::Level::INFO, "sleep", duration = 200);
     let txt = async {
         let ctx = tracing::Span::current().context();
@@ -78,7 +87,11 @@ async fn index() -> String {
 async fn otel_middleware(request: Request<Body>, next: Next) -> Response {
     let x: OtelHeader = request.headers().into();
     let parent_context = global::get_text_map_propagator(|propagator| propagator.extract(&x));
-    let span = span!(tracing::Level::INFO, "incoming_request");
+    let span = span!(
+        tracing::Level::INFO,
+        "incoming_request",
+        "otel.kind" = ?SpanKind::Server
+    );
     span.set_parent(parent_context);
     async { next.run(request).await }.instrument(span).await
 }

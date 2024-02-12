@@ -1,6 +1,6 @@
 import express, { Express } from "express";
 import { startSdk, extractContext } from "./tracing";
-import { trace } from "@opentelemetry/api";
+import { SpanKind, trace } from "@opentelemetry/api";
 
 startSdk();
 const tracer = trace.getTracer("dice-server", "0.1.0");
@@ -12,7 +12,11 @@ function getRandomNumber(min: number, max: number) {
 }
 
 app.get("/rolldice", async (req, res) => {
-  const span = tracer.startSpan("rolling dice", undefined, extractContext(req));
+  const span = tracer.startSpan(
+    "rolling dice",
+    { kind: SpanKind.SERVER },
+    extractContext(req)
+  );
   let randNum = getRandomNumber(1, 6);
   span.setAttribute("dice-rolled", randNum);
   await new Promise((r) => setTimeout(r, randNum * 100));

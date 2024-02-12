@@ -25,6 +25,14 @@ services:
     ports:
       - "9090:9090"
 
+  k6-tracing:
+    image: ghcr.io/grafana/xk6-client-tracing:latest
+    environment:
+      - ENDPOINT=tempo:4317
+    restart: always
+    depends_on:
+      - tempo
+
   grafana:
     image: grafana/grafana:10.2.2
     volumes:
