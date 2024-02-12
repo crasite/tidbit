@@ -1,9 +1,10 @@
+use axum_macros::debug_handler;
 use opentelemetry::{propagation::TextMapPropagator as _, trace::TracerProvider as _, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use otel_header::OtelHeader;
 use std::collections::HashMap;
 
-use tracing::{error, info, span, Instrument, Level};
+use tracing::{info, span, Instrument, Level};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer, Registry};
 mod otel_header;
@@ -39,17 +40,39 @@ async fn main() {
 }
 
 #[tracing::instrument]
+#[debug_handler]
 async fn index() -> String {
     info!("Hello, world!");
     tracing::trace!("This is a trace");
     let mut x = HashMap::new();
-    {
-        let _child = span!(tracing::Level::INFO, "child", foo = 1).entered();
+    let mut header_map = HashMap::new();
+    let child_span = span!(tracing::Level::INFO, "request", foo = 1);
+    let child_span2 = span!(tracing::Level::INFO, "sleep", duration = 200);
+    let txt = async {
         let ctx = tracing::Span::current().context();
         TraceContextPropagator::new().inject_context(&ctx, &mut x);
-        error!("This is an error");
+        global::get_text_map_propagator(|propagator| {
+            propagator.inject_context(&ctx, &mut header_map)
+        });
+        let header_map = (&header_map).try_into().unwrap();
+        let client = reqwest::Client::new();
+        client
+            .get("http://rollapp:8080/rolldice")
+            .headers(header_map)
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap()
     }
-    format!("Hello, world!\nContext: {:?}", x)
+    .instrument(child_span);
+    let sleeper = async {
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+    }
+    .instrument(child_span2);
+    let (txt, _) = tokio::join!(txt, sleeper);
+    format!("Hello, world!\nContext: {}", txt)
 }
 
 async fn otel_middleware(request: Request<Body>, next: Next) -> Response {
