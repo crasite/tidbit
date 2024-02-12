@@ -41,3 +41,8 @@ services:
     image: local:app
     ports:
       - "3008:3008"
+
+  rollapp:
+    image: local:roll
+    ports:
+      - "8080:8080"

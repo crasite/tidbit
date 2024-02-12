@@ -9,3 +9,4 @@ java-spring/.settings
 java-spring/build
 otel/target
 otel/tempo-data
+otel/node-server/node_modules
